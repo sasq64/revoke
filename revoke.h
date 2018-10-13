@@ -108,9 +108,11 @@ extern "C" API void revoke_callbacks(int count, void** callbacks, void** names)
     revokeInstance.setup(count, callbacks, names);
 }
 
-struct CSField;
+namespace cs {
 
-struct CSObj
+struct Field;
+
+struct Obj
 {
     csptr ptr;
 
@@ -131,31 +133,31 @@ struct CSObj
         return revokeInstance.CreateFrom(STRING, (void*)a.c_str());
     }
 
-    static inline void* convert(CSObj const& a) { return a.ptr.get(); }
+    static inline void* convert(Obj const& a) { return a.ptr.get(); }
 
-    CSObj(void* p) : ptr(p, revokeInstance.Free.fptr) {}
+    Obj(void* p) : ptr(p, revokeInstance.Free.fptr) {}
 
-    CSObj(csptr const& p) : ptr(p) {}
+    Obj(csptr const& p) : ptr(p) {}
 
     // Create static object
-    CSObj(std::string const& name)
+    Obj(std::string const& name)
     {
         ptr = csptr(revokeInstance.GetType(name.c_str()),
                     revokeInstance.Free.fptr);
     }
 
     template <typename... ARGS>
-    CSObj call(std::string const& method, ARGS... args)
+    Obj call(std::string const& method, ARGS... args)
     {
         void* pargs[] = {convert(args)...};
-        return CSObj(revokeInstance.NamedCall(method.c_str(), ptr.get(),
+        return Obj(revokeInstance.NamedCall(method.c_str(), ptr.get(),
                                               sizeof...(args), pargs));
     }
 
-    template <typename... ARGS> CSObj call(void* method, ARGS... args)
+    template <typename... ARGS> Obj call(void* method, ARGS... args)
     {
         void* pargs[] = {convert(args)...};
-        return CSObj(revokeInstance.MethodCall(method, ptr.get(),
+        return Obj(revokeInstance.MethodCall(method, ptr.get(),
                                                sizeof...(args), pargs));
     }
 
@@ -164,9 +166,9 @@ struct CSObj
         revokeInstance.SetProperty(name.c_str(), ptr.get(), convert(v));
     }
 
-    CSObj get(std::string const& name)
+    Obj get(std::string const& name)
     {
-        return CSObj(revokeInstance.GetProperty(name.c_str(), ptr.get()));
+        return Obj(revokeInstance.GetProperty(name.c_str(), ptr.get()));
     }
 
     operator float()
@@ -207,7 +209,7 @@ struct CSObj
             return *this;
         }
 
-        const Item& operator=(const CSObj& co) const
+        const Item& operator=(const Obj& co) const
         {
             revokeInstance.SetArrayValue(ptr, index, co.ptr.get());
             return *this;
@@ -228,43 +230,43 @@ struct CSObj
             return revokeInstance.GetArrayValueFloat(ptr, index);
         }
     };
-    CSField operator[](char const* name);
-    CSField operator[](std::string const& name);
+    Field operator[](char const* name);
+    Field operator[](std::string const& name);
     Item operator[](int i) { return Item(ptr.get(), i); }
 };
 
-struct CSMethod
+struct Method
 {
     csptr methodPtr;
     csptr ptr;
-    CSMethod(csptr const& p, csptr const& mp) : ptr(p), methodPtr(mp) {}
-    template <typename... ARGS> CSObj operator()(ARGS const&... args)
+    Method(csptr const& p, csptr const& mp) : ptr(p), methodPtr(mp) {}
+    template <typename... ARGS> Obj operator()(ARGS const&... args)
     {
         printf("%p\n", ptr.get());
-        void* pargs[] = {CSObj::convert(args)...};
-        return CSObj(revokeInstance.MethodCall(methodPtr.get(), ptr.get(),
+        void* pargs[] = {Obj::convert(args)...};
+        return Obj(revokeInstance.MethodCall(methodPtr.get(), ptr.get(),
                                                sizeof...(args), pargs));
     }
 };
 
 // The field 'name' of object or type 'ptr'
-struct CSField
+struct Field
 {
     std::string name;
     csptr ptr;
-    CSField(csptr const& ptr, std::string const& name) : name(name), ptr(ptr) {}
-    template <typename... ARGS> CSObj operator()(ARGS const&... args)
+    Field(csptr const& ptr, std::string const& name) : name(name), ptr(ptr) {}
+    template <typename... ARGS> Obj operator()(ARGS const&... args)
     {
-        void* pargs[] = {CSObj::convert(args)...};
-        return CSObj(revokeInstance.NamedCall(name.c_str(), ptr.get(),
+        void* pargs[] = {Obj::convert(args)...};
+        return Obj(revokeInstance.NamedCall(name.c_str(), ptr.get(),
                                               sizeof...(args), pargs));
     }
 
-    CSField operator[](char const* name)
+    Field operator[](char const* name)
     {
         void* newPtr =
             revokeInstance.GetProperty(this->name.c_str(), ptr.get());
-        return CSField(csptr(newPtr, revokeInstance.Free.fptr), name);
+        return Field(csptr(newPtr, revokeInstance.Free.fptr), name);
     }
 
     operator int()
@@ -287,49 +289,49 @@ struct CSField
 
     template <typename T> void operator=(T const& v)
     {
-        revokeInstance.SetProperty(name.c_str(), ptr.get(), CSObj::convert(v));
+        revokeInstance.SetProperty(name.c_str(), ptr.get(), Obj::convert(v));
     }
 
     const char* to_charp(const char* p) { return p; }
 
-    template <typename... ARGS> CSMethod type(ARGS const&... types)
+    template <typename... ARGS> Method type(ARGS const&... types)
     {
         const char* pargs[] = {to_charp(types)...};
         void* tp = revokeInstance.GetTypes(sizeof...(types), pargs);
         void* mptr = revokeInstance.ResolveMethod(name.c_str(), ptr.get(), tp);
         revokeInstance.Free(tp);
-        return CSMethod(ptr, csptr(mptr, revokeInstance.Free.fptr));
+        return Method(ptr, csptr(mptr, revokeInstance.Free.fptr));
     }
 };
 
-struct CSClass
+struct Class
 {
     csptr classPtr;
-    CSClass(std::string const& name)
+    Class(std::string const& name)
     {
         classPtr = csptr(revokeInstance.GetType(name.c_str()),
                          revokeInstance.Free.fptr);
     }
 
-    template <typename... ARGS> CSObj New(ARGS const&... args)
+    template <typename... ARGS> Obj New(ARGS const&... args)
     {
 
-        void* pargs[] = {CSObj::convert(args)...};
-        return CSObj(revokeInstance.NamedCall("new", classPtr.get(),
+        void* pargs[] = {Obj::convert(args)...};
+        return Obj(revokeInstance.NamedCall("new", classPtr.get(),
                                               sizeof...(args), pargs));
     }
 };
 
-template <typename T> struct CSArray;
+template <typename T> struct Array;
 
-template <> struct CSArray<int>
+template <> struct Array<int>
 {
     csptr ptr;
 
-    static CSArray New(int size)
+    static Array New(int size)
     {
         void* classPtr = revokeInstance.GetType("System.Int32[]");
-        ptr = CSObj(revokeInstance.NamedCall("new", classPtr.get(), size));
+        ptr = Obj(revokeInstance.NamedCall("new", classPtr.get(), size));
     }
 
     const int operator[](int i) const
@@ -338,7 +340,7 @@ template <> struct CSArray<int>
     }
 };
 
-template <> struct CSArray<float>
+template <> struct Array<float>
 {
     csptr ptr;
     const float operator[](int i) const
@@ -347,11 +349,13 @@ template <> struct CSArray<float>
     }
 };
 
-CSField CSObj::operator[](char const* name)
+Field Obj::operator[](char const* name)
 {
-    return CSField(ptr, name);
+    return Field(ptr, name);
 }
-CSField CSObj::operator[](std::string const& name)
+Field Obj::operator[](std::string const& name)
 {
-    return CSField(ptr, name);
+    return Field(ptr, name);
 }
+
+} // namespace
