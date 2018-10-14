@@ -1,6 +1,6 @@
 
 librevoke.so : test.o
-	g++ -shared -o librevoke.so test.o
+	g++ -shared -Wl,-Bstatic -static-libgcc -static-libstdc++ -o librevoke.so test.o
 test.o : test.cpp revoke.h
 	g++ -std=c++17 -fPIC -c test.cpp -o test.o
 

@@ -1,3 +1,4 @@
+#if (!UNITY_STANDALONE && !UNITY_EDITOR)
 using System;
 using System.Runtime.InteropServices;
 
@@ -21,4 +22,4 @@ public class TestMain
         return 0;
     }
 }
-
+#endif
