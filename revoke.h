@@ -35,7 +35,6 @@ enum ObjType
     OBJECT_ARRAY
 };
 
-// using csptr = std::unique_ptr<void, void (*)(void*)>;
 using csptr = std::shared_ptr<void>;
 
 template <typename... ARGS> struct SharpFunc;
@@ -90,11 +89,9 @@ struct Revoke
 
     void setup(int count, void** callbacks, void** namesPtr)
     {
-        printf("Setup\n");
 
         char** names = (char**)namesPtr;
         for (int i = 0; i < count; i++) {
-            printf("CALLBACK:'%s' %p\n", names[i], callbacks[i]);
             setFn(names[i], callbacks[i]);
         }
     }
@@ -104,7 +101,6 @@ static Revoke revokeInstance;
 
 extern "C" API void revoke_callbacks(int count, void** callbacks, void** names)
 {
-    printf("%d callbacks\n", count);
     revokeInstance.setup(count, callbacks, names);
 }
 
@@ -242,7 +238,6 @@ struct Method
     Method(csptr const& p, csptr const& mp) : ptr(p), methodPtr(mp) {}
     template <typename... ARGS> Obj operator()(ARGS const&... args)
     {
-        printf("%p\n", ptr.get());
         void* pargs[] = {Obj::convert(args)...};
         return Obj(revokeInstance.MethodCall(methodPtr.get(), ptr.get(),
                                                sizeof...(args), pargs));
@@ -328,10 +323,12 @@ template <> struct Array<int>
 {
     csptr ptr;
 
+    Array(void* ptr) : ptr(ptr, revokeInstance.Free.fptr) {}
+
     static Array New(int size)
     {
         void* classPtr = revokeInstance.GetType("System.Int32[]");
-        ptr = Obj(revokeInstance.NamedCall("new", classPtr.get(), size));
+        return Array(revokeInstance.NamedCall("new", classPtr, 1, &size));
     }
 
     const int operator[](int i) const

@@ -15,10 +15,10 @@ public class Expose : Attribute
 public static class Revoke
 {
     // Change the DllImport as needed
-    [DllImport("mworld")]
+    [DllImport("revoke")]
     public static extern void StringCopy(IntPtr dest, IntPtr src);
 
-    [DllImport("mworld")]
+    [DllImport("revoke")]
     public static extern void revoke_callbacks(int count, IntPtr[] callbacks, IntPtr[] names);
 
     enum ObjType {
@@ -216,7 +216,6 @@ public static class Revoke
     [Expose]
     public static IntPtr GetType(string name)
     {
-        Console.WriteLine("GetType " + name);
         return ToNative(Type.GetType(name));
     }
 
@@ -229,7 +228,6 @@ public static class Revoke
 
         for(int i=0; i<count; i++) {
             String typeName = Marshal.PtrToStringAnsi(intPtrArray[i]);
-            Console.WriteLine(typeName);
             typeArray[i] = Type.GetType(typeName);
         }
         return ToNative(typeArray);
@@ -241,12 +239,9 @@ public static class Revoke
         var obj = As<Object>(classType);
         var t = (obj is Type) ? (Type)obj : obj.GetType();
 
-        Console.WriteLine("Resolve " + methodName);
         var method = t.GetMethod(methodName);
-        Console.WriteLine(method.GetType().Name);
         if(method.IsGenericMethod) {
             method = method.MakeGenericMethod(As<Type[]>(argTypes));
-            Console.WriteLine(method.GetType().Name);
         }
         return ToNative(method);
     }
@@ -294,7 +289,6 @@ public static class Revoke
         Object obj = GCHandle.FromIntPtr(ptr).Target;
 
         var objType = (ObjType)type;
-        Console.WriteLine("Casting " + obj + " to " + objType);
 
         switch(objType)
         {
@@ -317,7 +311,6 @@ public static class Revoke
     [Expose]
     public static void Free(IntPtr ptr)
     {
-        Console.WriteLine("Free called");
         var handle = GCHandle.FromIntPtr(ptr);
         handle.Free();
     }
@@ -389,7 +382,6 @@ public static class Revoke
         var callbacks = new IntPtr [delegates.Count];
         var names = new IntPtr [delegates.Count];
         for(int i=0; i<delegates.Count; i++) {
-            Console.WriteLine(delegates[i].GetMethodInfo().Name);
             callbacks[i] = Marshal.GetFunctionPointerForDelegate(delegates[i]);
             names[i] = Marshal.StringToHGlobalAnsi(delegates[i].GetMethodInfo().Name);
         }

@@ -2,7 +2,13 @@
 
 _Call C# from C++_
 
-### How to use
+### Test (Linux)
+
+*Requires*: mono, modern g++
+
+`make run`
+
+### How to use in your project
 
 * Include "revoke.h" in your C++ shared library
 * Add "revoke.cs" to your C# project.
