@@ -14,16 +14,28 @@ public class TestClass
 
 public class RevokeBehaviour : MonoBehaviour {
 
+#if (UNITY_EDITOR_WIN || UNITY_STANDALONE_WIN)
+    public delegate void test_start();
+#else
     [DllImport("revoke")]
     public static extern void test_start();
-	// Use this for initialization
-	void Start () {
-        revoke.Revoke.Init();
+#endif
+
+    void Awake ()
+    {
+#if (UNITY_EDITOR_WIN || UNITY_STANDALONE_WIN)
+        revoke.Revoke.LoadLibrary(Application.streamingAssetsPath + "/bin/libwinpthread-1.dll");
+        revoke.Revoke.Init(Application.streamingAssetsPath + "/bin/revoke.dll");
+        revoke.Revoke.Invoke<test_start>();
+#else
+        revoke.Revoke.Init("");
         test_start();
-	}
-	
-	// Update is called once per frame
-	void Update () {
-		
-	}
+#endif
+    }
+
+    private void OnDestroy()
+    {
+        Debug.Log("Exit");
+        revoke.Revoke.Exit();
+    }
 }
