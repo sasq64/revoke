@@ -233,10 +233,7 @@ namespace revoke
                 var method = typ.GetConstructor(argTypes);
                 return ToNative(method.Invoke(objs));
             } else {
-                UnityEngine.Debug.LogFormat("Finding {0} in {1}", methodName, typ.Name);
                 var method = typ.GetMethod(methodName, argTypes);
-                if(method != null)
-                    UnityEngine.Debug.LogFormat("Found {0}", method.Name);
                 return ToNative(method.Invoke(self, objs));
             }
         }
@@ -245,7 +242,6 @@ namespace revoke
         public static IntPtr GetType(string name)
         {
             var ptr = Type.GetType(name);
-            UnityEngine.Debug.Log(name + " " + ptr);
             return ToNative(ptr);
         }
 
@@ -259,7 +255,6 @@ namespace revoke
             for(int i=0; i<count; i++) {
                 String typeName = Marshal.PtrToStringAnsi(intPtrArray[i]);
                 typeArray[i] = Type.GetType(typeName);
-                UnityEngine.Debug.Log(typeName + " : " + typeArray[i].Name);
               
             }
             return ToNative(typeArray);
@@ -281,10 +276,8 @@ namespace revoke
                 }
             }
 
-            UnityEngine.Debug.LogFormat("{0} {1}", method.IsGenericMethod, method.IsGenericMethodDefinition);
             if(method.IsGenericMethod) {
                 method = method.MakeGenericMethod(types);
-                UnityEngine.Debug.LogFormat("{0} {1}", method.IsGenericMethod, method.IsGenericMethodDefinition);
             }
             return ToNative(method);
         }
@@ -419,7 +412,7 @@ namespace revoke
             revokeLibPtr = IntPtr.Zero;
 #endif
         }
-        
+
         public static void Init(String dllName)
         {
 #if WIN

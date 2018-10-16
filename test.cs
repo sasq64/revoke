@@ -17,7 +17,7 @@ public class TestMain
 
     static int Main(string[] args)
     {
-        revoke.Revoke.Init();
+        revoke.Revoke.Init("");
         test_start();
         return 0;
     }
