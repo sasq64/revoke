@@ -1,8 +1,14 @@
+OS := $(shell uname)
+ifeq ($(OS),Darwin)
+	LINK_FLAGS :=
+else
+	LINK_FLAGS := -Wl,-Bstatic -static-libgcc -static-libstdc++
+endif
 
 librevoke.so : test.o
-	g++ -shared -Wl,-Bstatic -static-libgcc -static-libstdc++ -o librevoke.so test.o
+	g++ -shared ${LINK_FLAGS} -o librevoke.so test.o
 test.o : test.cpp revoke.h
-	g++ -std=c++17 -fPIC -c test.cpp -o test.o
+	g++ -std=c++14 -fPIC -c test.cpp -o test.o
 
 test.exe : test.cs revoke.cs librevoke.so
 	csc test.cs revoke.cs

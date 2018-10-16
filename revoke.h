@@ -39,16 +39,24 @@ using csptr = std::shared_ptr<void>;
 
 template <typename... ARGS> struct SharpFunc;
 
-inline static std::map<std::string, void**>* funcList;
+struct FuncList
+{
+    static std::map<std::string, void**>& get()
+    {
+        static std::map<std::string, void**>* funcList;
+        if (funcList == nullptr)
+            funcList = new std::map<std::string, void**>();
+        return *funcList;
+    }
+};
+
 template <typename R, typename... ARGS> struct SharpFunc<R(ARGS...)>
 {
     std::string name;
     R (*fptr)(ARGS...);
     SharpFunc(std::string const& name) : name(name)
     {
-        if (funcList == nullptr)
-            funcList = new std::map<std::string, void**>();
-        (*funcList)[name] = (void**)&fptr;
+        FuncList::get()[name] = (void**)&fptr;
     }
 
     R operator()(ARGS... args) { return fptr(args...); }
@@ -58,7 +66,7 @@ template <typename R, typename... ARGS> struct SharpFunc<R(ARGS...)>
 
 static void setFn(std::string const& name, void* fptr)
 {
-    auto* ptr = (*funcList)[name];
+    auto* ptr = FuncList::get()[name];
     if (ptr != nullptr)
         *ptr = fptr;
 }
@@ -80,28 +88,29 @@ struct Revoke
     SharpFunc<void*(void*, int, void*)> GetArrayValue{"GetArrayValue"};
     SharpFunc<void(void*, int, int, void*)> SetManyVal{"SetManyVal"};
     SharpFunc<void(void*, int, int, void*)> GetManyVal{"GetManyVal"};
-
     SharpFunc<void(void*, int, int)> SetArrayValueInt{"SetArrayValueInt"};
     SharpFunc<int(void*, int)> GetArrayValueInt{"GetArrayValueInt"};
-
     SharpFunc<void(void*, int, float)> SetArrayValueFloat{"SetArrayValueFloat"};
     SharpFunc<float(void*, int)> GetArrayValueFloat{"GetArrayValueFloat"};
 
     void setup(int count, void** callbacks, void** namesPtr)
     {
-
         char** names = (char**)namesPtr;
         for (int i = 0; i < count; i++) {
             setFn(names[i], callbacks[i]);
         }
     }
-};
 
-static Revoke revokeInstance;
+    static Revoke& instance()
+    {
+        static Revoke revoke;
+        return revoke;
+    }
+};
 
 extern "C" API void revoke_callbacks(int count, void** callbacks, void** names)
 {
-    revokeInstance.setup(count, callbacks, names);
+    Revoke::instance().setup(count, callbacks, names);
 }
 
 namespace cs {
@@ -115,79 +124,79 @@ struct Obj
     static inline void* convert(float const& a)
     {
         float v = a;
-        return revokeInstance.CreateFrom(FLOAT, &v);
+        return Revoke::instance().CreateFrom(FLOAT, &v);
     }
 
     static inline void* convert(int const& a)
     {
         int v = a;
-        return revokeInstance.CreateFrom(INT, &v);
+        return Revoke::instance().CreateFrom(INT, &v);
     }
 
     static inline void* convert(std::string const& a)
     {
-        return revokeInstance.CreateFrom(STRING, (void*)a.c_str());
+        return Revoke::instance().CreateFrom(STRING, (void*)a.c_str());
     }
 
     static inline void* convert(Obj const& a) { return a.ptr.get(); }
 
-    Obj(void* p) : ptr(p, revokeInstance.Free.fptr) {}
+    Obj(void* p) : ptr(p, Revoke::instance().Free.fptr) {}
 
     Obj(csptr const& p) : ptr(p) {}
 
     // Create static object
     Obj(std::string const& name)
     {
-        ptr = csptr(revokeInstance.GetType(name.c_str()),
-                    revokeInstance.Free.fptr);
+        ptr = csptr(Revoke::instance().GetType(name.c_str()),
+                    Revoke::instance().Free.fptr);
     }
 
     template <typename... ARGS>
     Obj call(std::string const& method, ARGS... args)
     {
         void* pargs[] = {convert(args)...};
-        return Obj(revokeInstance.NamedCall(method.c_str(), ptr.get(),
+        return Obj(Revoke::instance().NamedCall(method.c_str(), ptr.get(),
                                               sizeof...(args), pargs));
     }
 
     template <typename... ARGS> Obj call(void* method, ARGS... args)
     {
         void* pargs[] = {convert(args)...};
-        return Obj(revokeInstance.MethodCall(method, ptr.get(),
+        return Obj(Revoke::instance().MethodCall(method, ptr.get(),
                                                sizeof...(args), pargs));
     }
 
     template <typename T> void set(std::string const& name, T const& v)
     {
-        revokeInstance.SetProperty(name.c_str(), ptr.get(), convert(v));
+        Revoke::instance().SetProperty(name.c_str(), ptr.get(), convert(v));
     }
 
     Obj get(std::string const& name)
     {
-        return Obj(revokeInstance.GetProperty(name.c_str(), ptr.get()));
+        return Obj(Revoke::instance().GetProperty(name.c_str(), ptr.get()));
     }
 
     operator float()
     {
         float rc = -1;
-        revokeInstance.CastTo(FLOAT, ptr.get(), &rc);
+        Revoke::instance().CastTo(FLOAT, ptr.get(), &rc);
         return rc;
     }
 
     operator int()
     {
         int rc = -1;
-        revokeInstance.CastTo(INT, ptr.get(), &rc);
+        Revoke::instance().CastTo(INT, ptr.get(), &rc);
         return rc;
     }
 
     operator std::string()
     {
         int size;
-        int t = revokeInstance.GetTypeId(ptr.get(), &size);
+        int t = Revoke::instance().GetTypeId(ptr.get(), &size);
         if (t == STRING) {
             auto target = std::make_unique<char[]>(size + 1);
-            revokeInstance.CastTo(STRING, ptr.get(), target.get());
+            Revoke::instance().CastTo(STRING, ptr.get(), target.get());
             return std::string(target.get());
         }
         return "";
@@ -201,29 +210,29 @@ struct Obj
 
         const Item& operator=(const int& f) const
         {
-            revokeInstance.SetArrayValueInt(ptr, index, f);
+            Revoke::instance().SetArrayValueInt(ptr, index, f);
             return *this;
         }
 
         const Item& operator=(const Obj& co) const
         {
-            revokeInstance.SetArrayValue(ptr, index, co.ptr.get());
+            Revoke::instance().SetArrayValue(ptr, index, co.ptr.get());
             return *this;
         }
 
         const Item& operator=(const float& f) const
         {
-            revokeInstance.SetArrayValueFloat(ptr, index, f);
+            Revoke::instance().SetArrayValueFloat(ptr, index, f);
             return *this;
         }
 
         operator int() const
         {
-            return revokeInstance.GetArrayValueInt(ptr, index);
+            return Revoke::instance().GetArrayValueInt(ptr, index);
         }
         operator float() const
         {
-            return revokeInstance.GetArrayValueFloat(ptr, index);
+            return Revoke::instance().GetArrayValueFloat(ptr, index);
         }
     };
     Field operator[](char const* name);
@@ -239,7 +248,7 @@ struct Method
     template <typename... ARGS> Obj operator()(ARGS const&... args)
     {
         void* pargs[] = {Obj::convert(args)...};
-        return Obj(revokeInstance.MethodCall(methodPtr.get(), ptr.get(),
+        return Obj(Revoke::instance().MethodCall(methodPtr.get(), ptr.get(),
                                                sizeof...(args), pargs));
     }
 };
@@ -253,23 +262,23 @@ struct Field
     template <typename... ARGS> Obj operator()(ARGS const&... args)
     {
         void* pargs[] = {Obj::convert(args)...};
-        return Obj(revokeInstance.NamedCall(name.c_str(), ptr.get(),
+        return Obj(Revoke::instance().NamedCall(name.c_str(), ptr.get(),
                                               sizeof...(args), pargs));
     }
 
     Field operator[](char const* name)
     {
         void* newPtr =
-            revokeInstance.GetProperty(this->name.c_str(), ptr.get());
-        return Field(csptr(newPtr, revokeInstance.Free.fptr), name);
+            Revoke::instance().GetProperty(this->name.c_str(), ptr.get());
+        return Field(csptr(newPtr, Revoke::instance().Free.fptr), name);
     }
 
     operator int()
     {
         int rc = -1;
         void* newPtr =
-            revokeInstance.GetProperty(this->name.c_str(), ptr.get());
-        revokeInstance.CastTo(INT, newPtr, &rc);
+            Revoke::instance().GetProperty(this->name.c_str(), ptr.get());
+        Revoke::instance().CastTo(INT, newPtr, &rc);
         return rc;
     }
 
@@ -277,14 +286,14 @@ struct Field
     {
         float rc = -1;
         void* newPtr =
-            revokeInstance.GetProperty(this->name.c_str(), ptr.get());
-        revokeInstance.CastTo(FLOAT, newPtr, &rc);
+            Revoke::instance().GetProperty(this->name.c_str(), ptr.get());
+        Revoke::instance().CastTo(FLOAT, newPtr, &rc);
         return rc;
     }
 
     template <typename T> void operator=(T const& v)
     {
-        revokeInstance.SetProperty(name.c_str(), ptr.get(), Obj::convert(v));
+        Revoke::instance().SetProperty(name.c_str(), ptr.get(), Obj::convert(v));
     }
 
     const char* to_charp(const char* p) { return p; }
@@ -292,10 +301,10 @@ struct Field
     template <typename... ARGS> Method type(ARGS const&... types)
     {
         const char* pargs[] = {to_charp(types)...};
-        void* tp = revokeInstance.GetTypes(sizeof...(types), pargs);
-        void* mptr = revokeInstance.ResolveMethod(name.c_str(), ptr.get(), tp);
-        revokeInstance.Free(tp);
-        return Method(ptr, csptr(mptr, revokeInstance.Free.fptr));
+        void* tp = Revoke::instance().GetTypes(sizeof...(types), pargs);
+        void* mptr = Revoke::instance().ResolveMethod(name.c_str(), ptr.get(), tp);
+        Revoke::instance().Free(tp);
+        return Method(ptr, csptr(mptr, Revoke::instance().Free.fptr));
     }
 };
 
@@ -304,15 +313,15 @@ struct Class
     csptr classPtr;
     Class(std::string const& name)
     {
-        classPtr = csptr(revokeInstance.GetType(name.c_str()),
-                         revokeInstance.Free.fptr);
+        classPtr = csptr(Revoke::instance().GetType(name.c_str()),
+                         Revoke::instance().Free.fptr);
     }
 
     template <typename... ARGS> Obj New(ARGS const&... args)
     {
 
         void* pargs[] = {Obj::convert(args)...};
-        return Obj(revokeInstance.NamedCall("new", classPtr.get(),
+        return Obj(Revoke::instance().NamedCall("new", classPtr.get(),
                                               sizeof...(args), pargs));
     }
 };
@@ -323,17 +332,17 @@ template <> struct Array<int>
 {
     csptr ptr;
 
-    Array(void* ptr) : ptr(ptr, revokeInstance.Free.fptr) {}
+    Array(void* ptr) : ptr(ptr, Revoke::instance().Free.fptr) {}
 
     static Array New(int size)
     {
-        void* classPtr = revokeInstance.GetType("System.Int32[]");
-        return Array(revokeInstance.NamedCall("new", classPtr, 1, &size));
+        void* classPtr = Revoke::instance().GetType("System.Int32[]");
+        return Array(Revoke::instance().NamedCall("new", classPtr, 1, &size));
     }
 
     const int operator[](int i) const
     {
-        return revokeInstance.GetArrayValueInt(ptr.get(), i);
+        return Revoke::instance().GetArrayValueInt(ptr.get(), i);
     }
 };
 
@@ -342,7 +351,7 @@ template <> struct Array<float>
     csptr ptr;
     const float operator[](int i) const
     {
-        return revokeInstance.GetArrayValueFloat(ptr.get(), i);
+        return Revoke::instance().GetArrayValueFloat(ptr.get(), i);
     }
 };
 
