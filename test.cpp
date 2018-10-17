@@ -1,7 +1,11 @@
 #include "revoke.h"
+#include "resol.h"
+
 
 extern "C" API void test_start()
 {
+
+    CSLua::init();
     auto TestClass = cs::Obj("TestClass");
     TestClass["StaticMethod"](33);
 }
