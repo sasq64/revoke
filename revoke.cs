@@ -174,6 +174,7 @@ namespace revoke
             var self = As<Object>(selfPtr);
             var typ = (self is Type) ? (Type)self : self.GetType();
             var prop = typ.GetProperty(fieldName);
+
             if(prop != null)
             {
                 return ToNative(prop.GetValue(self));
@@ -375,6 +376,24 @@ namespace revoke
                 break;
             }
             return GCHandle.ToIntPtr(GCHandle.Alloc(obj));
+        }
+
+        public static int GetMembers(IntPtr objPtr, IntPtr resultPtr)
+        {
+            var obj = As<Object>(objPtr);
+            var t = (obj is Type) ? (Type)obj : obj.GetType();
+
+            MemberInfo[] members = t.GetMembers();
+            IntPtr[] result = new IntPtr[members.Length * 3];
+            int i = 0;
+            foreach(var m in members)
+            {
+                result[i++] = Marshal.StringToHGlobalAuto(m.Name);
+                result[i++] = (int)m.MemberType;
+                result[i++] = ToNative(m);
+            }
+
+
         }
 
         public static Delegate ToDelegate(MethodInfo mi)

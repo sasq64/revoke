@@ -144,6 +144,11 @@ struct Obj
 
     Obj(csptr const& p) : ptr(p) {}
 
+    Obj()
+    {
+        printf("XXX\n");
+    }
+
     // Create static object
     Obj(std::string const& name)
     {
@@ -156,14 +161,14 @@ struct Obj
     {
         void* pargs[] = {convert(args)...};
         return Obj(Revoke::instance().NamedCall(method.c_str(), ptr.get(),
-                                              sizeof...(args), pargs));
+                                                sizeof...(args), pargs));
     }
 
     template <typename... ARGS> Obj call(void* method, ARGS... args)
     {
         void* pargs[] = {convert(args)...};
         return Obj(Revoke::instance().MethodCall(method, ptr.get(),
-                                               sizeof...(args), pargs));
+                                                 sizeof...(args), pargs));
     }
 
     template <typename T> void set(std::string const& name, T const& v)
@@ -249,7 +254,7 @@ struct Method
     {
         void* pargs[] = {Obj::convert(args)...};
         return Obj(Revoke::instance().MethodCall(methodPtr.get(), ptr.get(),
-                                               sizeof...(args), pargs));
+                                                 sizeof...(args), pargs));
     }
 };
 
@@ -263,7 +268,7 @@ struct Field
     {
         void* pargs[] = {Obj::convert(args)...};
         return Obj(Revoke::instance().NamedCall(name.c_str(), ptr.get(),
-                                              sizeof...(args), pargs));
+                                                sizeof...(args), pargs));
     }
 
     Field operator[](char const* name)
@@ -293,7 +298,8 @@ struct Field
 
     template <typename T> void operator=(T const& v)
     {
-        Revoke::instance().SetProperty(name.c_str(), ptr.get(), Obj::convert(v));
+        Revoke::instance().SetProperty(name.c_str(), ptr.get(),
+                                       Obj::convert(v));
     }
 
     const char* to_charp(const char* p) { return p; }
@@ -302,7 +308,8 @@ struct Field
     {
         const char* pargs[] = {to_charp(types)...};
         void* tp = Revoke::instance().GetTypes(sizeof...(types), pargs);
-        void* mptr = Revoke::instance().ResolveMethod(name.c_str(), ptr.get(), tp);
+        void* mptr =
+            Revoke::instance().ResolveMethod(name.c_str(), ptr.get(), tp);
         Revoke::instance().Free(tp);
         return Method(ptr, csptr(mptr, Revoke::instance().Free.fptr));
     }
@@ -322,7 +329,7 @@ struct Class
 
         void* pargs[] = {Obj::convert(args)...};
         return Obj(Revoke::instance().NamedCall("new", classPtr.get(),
-                                              sizeof...(args), pargs));
+                                                sizeof...(args), pargs));
     }
 };
 
@@ -364,4 +371,4 @@ Field Obj::operator[](std::string const& name)
     return Field(ptr, name);
 }
 
-} // namespace
+} // namespace cs

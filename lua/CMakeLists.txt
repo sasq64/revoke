@@ -7,14 +7,3 @@ set(LUA_SOURCES ${CORE_FILES} ${LIB_FILES})
 
 add_library(lua ${LUA_SOURCES})
 target_include_directories(lua INTERFACE ${PROJECT_SOURCE_DIR})
-#target_link_libraries(lua PUBLIC xx)
-
-
-if(ANDROID)
-    target_link_libraries(machlib PRIVATE -lGLESv3 -llog)
-# else()
-#     add_executable(testmachine test.cpp ../testmain.cpp)
-#     target_link_libraries(testmachine PRIVATE machine image)
-#     target_compile_definitions(testmachine PRIVATE -DTESTING)
-endif()
-

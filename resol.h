@@ -5,11 +5,21 @@
 
 struct CSLua
 {
-    struct CSCall
+    struct CSStaticCall
     {
         sol::variadic_results operator()(const sol::variadic_args va)
         {
             printf("Called with %d args\n", va.size());
+            sol::variadic_results r;
+            return r;
+        }
+    };
+
+    struct CSCall
+    {
+        sol::variadic_results operator()(cs::Obj& thiz, const sol::variadic_args va)
+        {
+            printf("MEMBER Called with %d args\n", va.size());
             sol::variadic_results r;
             return r;
         }
@@ -26,9 +36,10 @@ struct CSLua
         lua().open_libraries(sol::lib::base, sol::lib::package);
         lua().new_usertype<cs::Obj>("GameObject");
 
-        lua()["test_call"] = sol::as_function(CSCall());
+        lua()["GameObject"]["static_call"] = CSStaticCall();
+        lua()["GameObject"]["member_call"] = CSCall();
 
-        lua().script("test_call(1,2,3)\n");
+        lua().script("GameObject.static_call(1,2,3)\ngo = GameObject.new()\ngo:member_call(3)\n");
 
     }
 };
