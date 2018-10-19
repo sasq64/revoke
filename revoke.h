@@ -81,6 +81,7 @@ struct Revoke
     SharpFunc<void(const char*, void*, void*)> SetProperty{"SetProperty"};
     SharpFunc<void*(const char*, void*)> GetProperty{"GetProperty"};
     SharpFunc<int(void*, void*)> GetTypeId{"GetTypeID"};
+    SharpFunc<int(void*, void*)> GetMembers{"GetMembers"};
     SharpFunc<int(int, void*, void*)> CastTo{"CastTo"};
     SharpFunc<void*(int, void*)> CreateFrom{"CreateFrom"};
     SharpFunc<void(void*)> Free{"Free"};

@@ -17,7 +17,7 @@ namespace revoke
 
     public static class Revoke
     {
-    #if WIN
+#if WIN
         public delegate void StringCopy(IntPtr dest, IntPtr src);
         public delegate void revoke_callbacks(int count, IntPtr[] callbacks, IntPtr[] names);
         public static IntPtr revokeLibPtr;
@@ -38,15 +38,16 @@ namespace revoke
 
         [DllImport("kernel32")]
         public static extern IntPtr GetProcAddress(IntPtr hModule, string procedureName);
-    #else
+#else
         // Change the DllImport as needed
         [DllImport("revoke")]
         public static extern void StringCopy(IntPtr dest, IntPtr src);
 
         [DllImport("revoke")]
         public static extern void revoke_callbacks(int count, IntPtr[] callbacks, IntPtr[] names);
-    #endif
-            enum ObjType {
+#endif
+        enum ObjType
+        {
             VOID,
             INT,
             FLOAT,
@@ -64,7 +65,7 @@ namespace revoke
 
         private static T As<T>(IntPtr nativeRef)
         {
-            if(nativeRef == IntPtr.Zero)
+            if (nativeRef == IntPtr.Zero)
                 return default(T);
             return (T)GCHandle.FromIntPtr(nativeRef).Target;
         }
@@ -122,13 +123,13 @@ namespace revoke
             var self = As<Object>(selfPtr);
             var elementType = self.GetType().GetElementType();
             TypeCode t = Type.GetTypeCode(elementType);
-            switch(t)
+            switch (t)
             {
                 case TypeCode.Single:
-                    Marshal.Copy((Single[])self, offset, target, count); 
+                    Marshal.Copy((Single[])self, offset, target, count);
                     break;
                 case TypeCode.Int32:
-                    Marshal.Copy((Int32[])self, offset, target, count); 
+                    Marshal.Copy((Int32[])self, offset, target, count);
                     break;
             }
         }
@@ -139,13 +140,13 @@ namespace revoke
             var self = As<Object>(selfPtr);
             var elementType = self.GetType().GetElementType();
             TypeCode t = Type.GetTypeCode(elementType);
-            switch(t)
+            switch (t)
             {
                 case TypeCode.Single:
-                    Marshal.Copy(target, (Single[])self, offset, count); 
+                    Marshal.Copy(target, (Single[])self, offset, count);
                     break;
                 case TypeCode.Int32:
-                    Marshal.Copy(target, (Int32[])self, offset, count); 
+                    Marshal.Copy(target, (Int32[])self, offset, count);
                     break;
             }
         }
@@ -157,7 +158,7 @@ namespace revoke
             var arg = As<Object>(value);
             var typ = (self is Type) ? (Type)self : self.GetType();
             var prop = typ.GetProperty(fieldName);
-            if(prop != null)
+            if (prop != null)
             {
                 prop.SetValue(self, arg);
             }
@@ -175,7 +176,7 @@ namespace revoke
             var typ = (self is Type) ? (Type)self : self.GetType();
             var prop = typ.GetProperty(fieldName);
 
-            if(prop != null)
+            if (prop != null)
             {
                 return ToNative(prop.GetValue(self));
             }
@@ -192,13 +193,13 @@ namespace revoke
             var method = As<MethodInfo>(boundMethod);
             var self = As<Object>(selfPtr);
 
-            var objs = new Object [argCount];
+            var objs = new Object[argCount];
 
             if (argCount > 0)
             {
-                var args = new IntPtr [argCount];
+                var args = new IntPtr[argCount];
                 Marshal.Copy(argsPtr, args, 0, argCount);
-                for(int i=0; i<argCount; i++)
+                for (int i = 0; i < argCount; i++)
                 {
                     objs[i] = As<Object>(args[i]);
                 }
@@ -211,14 +212,14 @@ namespace revoke
         public static IntPtr NamedCall(string methodName, IntPtr selfPtr, int argCount, IntPtr argsPtr)
         {
 
-            var objs = new Object [argCount];
-            var argTypes = new Type [argCount];
+            var objs = new Object[argCount];
+            var argTypes = new Type[argCount];
 
             if (argCount > 0)
             {
-                var args = new IntPtr [argCount];
+                var args = new IntPtr[argCount];
                 Marshal.Copy(argsPtr, args, 0, argCount);
-                for(int i=0; i<argCount; i++)
+                for (int i = 0; i < argCount; i++)
                 {
                     objs[i] = As<Object>(args[i]);
                     argTypes[i] = objs[i].GetType();
@@ -229,11 +230,13 @@ namespace revoke
             var typ = (self is Type) ? (Type)self : self.GetType();
 
 
-            if(methodName == "new")
+            if (methodName == "new")
             {
                 var method = typ.GetConstructor(argTypes);
                 return ToNative(method.Invoke(objs));
-            } else {
+            }
+            else
+            {
                 var method = typ.GetMethod(methodName, argTypes);
                 return ToNative(method.Invoke(self, objs));
             }
@@ -247,16 +250,24 @@ namespace revoke
         }
 
         [Expose]
+        public static int GetMemberCount(IntPtr obj)
+        {
+            var type = As<Type>(obj);
+            return type.GetMembers().Length;
+        }
+
+        [Expose]
         public static IntPtr GetTypes(int count, IntPtr charpArray) // char** ptr
         {
             IntPtr[] intPtrArray = new IntPtr[count];
             Type[] typeArray = new Type[count];
             Marshal.Copy(charpArray, intPtrArray, 0, count);
 
-            for(int i=0; i<count; i++) {
+            for (int i = 0; i < count; i++)
+            {
                 String typeName = Marshal.PtrToStringAnsi(intPtrArray[i]);
                 typeArray[i] = Type.GetType(typeName);
-              
+
             }
             return ToNative(typeArray);
         }
@@ -268,7 +279,7 @@ namespace revoke
             var t = (obj is Type) ? (Type)obj : obj.GetType();
             var types = As<Type[]>(argTypes);
             MethodInfo method = null;
-            foreach(var m in t.GetMethods())
+            foreach (var m in t.GetMethods())
             {
                 if (methodName == m.Name && m.IsGenericMethod)
                 {
@@ -277,7 +288,8 @@ namespace revoke
                 }
             }
 
-            if(method.IsGenericMethod) {
+            if (method.IsGenericMethod)
+            {
                 method = method.MakeGenericMethod(types);
             }
             return ToNative(method);
@@ -291,22 +303,22 @@ namespace revoke
 
             Type at = obj.GetType().GetElementType();
 
-            if(at != null)
+            if (at != null)
             {
                 // This is an array
                 var objs = (Object[])obj;
                 size = objs.Length;
             }
-            else if(obj is String)
+            else if (obj is String)
             {
                 size = ((String)obj).Length;
             }
-            if(sizePtr != IntPtr.Zero)
+            if (sizePtr != IntPtr.Zero)
                 Marshal.WriteInt32(sizePtr, size);
 
             TypeCode t = Type.GetTypeCode(obj.GetType());
 
-            switch(t)
+            switch (t)
             {
                 case TypeCode.Int32:
                 case TypeCode.Int16:
@@ -327,24 +339,24 @@ namespace revoke
 
             var objType = (ObjType)type;
 
-            switch(objType)
+            switch (objType)
             {
-            case ObjType.FLOAT:
-                var floatArr = new [] { (float)obj };
-                Marshal.Copy(floatArr, 0, target, 1);
-                break;
-            case ObjType.INT:
-                Marshal.WriteInt32(target, (int)obj);
-                return 1;
-            case ObjType.STRING:
-                IntPtr cstring = Marshal.StringToHGlobalAuto((String)obj);
-    #if WIN
+                case ObjType.FLOAT:
+                    var floatArr = new[] { (float)obj };
+                    Marshal.Copy(floatArr, 0, target, 1);
+                    break;
+                case ObjType.INT:
+                    Marshal.WriteInt32(target, (int)obj);
+                    return 1;
+                case ObjType.STRING:
+                    IntPtr cstring = Marshal.StringToHGlobalAuto((String)obj);
+#if WIN
                 Invoke<StringCopy>(revokeLibPtr, target, cstring);
-    #else
-                StringCopy(target, cstring);
-    #endif
-                Marshal.FreeHGlobal(cstring);
-                return 1;
+#else
+                    StringCopy(target, cstring);
+#endif
+                    Marshal.FreeHGlobal(cstring);
+                    return 1;
             }
             return 0;
         }
@@ -361,38 +373,40 @@ namespace revoke
         {
             Object obj = null;
             var objType = (ObjType)type;
-            switch(objType)
+            switch (objType)
             {
-            case ObjType.FLOAT:
-                var floatArr = new float [1];
-                Marshal.Copy(source, floatArr, 0, 1);
-                obj = (float)floatArr[0];
-                break;
-            case ObjType.INT:
-                obj = (Object)Marshal.ReadInt32(source);
-                break;
-            case ObjType.STRING:
-                obj = Marshal.PtrToStringAnsi(source);
-                break;
+                case ObjType.FLOAT:
+                    var floatArr = new float[1];
+                    Marshal.Copy(source, floatArr, 0, 1);
+                    obj = (float)floatArr[0];
+                    break;
+                case ObjType.INT:
+                    obj = (Object)Marshal.ReadInt32(source);
+                    break;
+                case ObjType.STRING:
+                    obj = Marshal.PtrToStringAnsi(source);
+                    break;
             }
             return GCHandle.ToIntPtr(GCHandle.Alloc(obj));
         }
 
-        public static int GetMembers(IntPtr objPtr, IntPtr resultPtr)
+        [Expose]
+        public static int GetMembers(IntPtr objPtr, IntPtr target)
         {
             var obj = As<Object>(objPtr);
             var t = (obj is Type) ? (Type)obj : obj.GetType();
 
             MemberInfo[] members = t.GetMembers();
-            IntPtr[] result = new IntPtr[members.Length * 3];
+            int bs = 8;
             int i = 0;
-            foreach(var m in members)
+            foreach (var m in members)
             {
-                result[i++] = Marshal.StringToHGlobalAuto(m.Name);
-                result[i++] = (int)m.MemberType;
-                result[i++] = ToNative(m);
+                Marshal.WriteIntPtr(target, i, Marshal.StringToHGlobalAuto(m.Name));
+                Marshal.WriteIntPtr(target, i + bs, new IntPtr((int)m.MemberType));
+                Marshal.WriteIntPtr(target, i + bs*2, ToNative(m));
+                i += bs*3;
             }
-
+            return i/(bs*3);
 
         }
 
@@ -403,7 +417,7 @@ namespace revoke
             Type delegateType;
 
             List<Type> typeArgs = new List<Type>();
-            foreach(var p in mi.GetParameters())
+            foreach (var p in mi.GetParameters())
             {
                 typeArgs.Add(p.ParameterType);
             }
@@ -420,7 +434,7 @@ namespace revoke
             }
 
             // creates a binded delegate if target is supplied
-            return  Delegate.CreateDelegate(delegateType, mi);
+            return Delegate.CreateDelegate(delegateType, mi);
         }
 
         public static void Exit()
@@ -441,17 +455,20 @@ namespace revoke
 
             Type t = typeof(Revoke);
             var methods = t.GetMethods();
-            foreach(var method in methods) {
+            foreach (var method in methods)
+            {
                 var attrs = method.GetCustomAttributes(typeof(Expose), true);
-                if(attrs.Length > 0) {
+                if (attrs.Length > 0)
+                {
                     var dt = ToDelegate(method);
                     delegates.Add(dt);
                 }
             }
 
-            var callbacks = new IntPtr [delegates.Count];
-            var names = new IntPtr [delegates.Count];
-            for(int i=0; i<delegates.Count; i++) {
+            var callbacks = new IntPtr[delegates.Count];
+            var names = new IntPtr[delegates.Count];
+            for (int i = 0; i < delegates.Count; i++)
+            {
                 callbacks[i] = Marshal.GetFunctionPointerForDelegate(delegates[i]);
                 names[i] = Marshal.StringToHGlobalAnsi(delegates[i].GetMethodInfo().Name);
             }
