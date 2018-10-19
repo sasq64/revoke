@@ -192,6 +192,8 @@ namespace revoke
         {
             var method = As<MethodInfo>(boundMethod);
             var self = As<Object>(selfPtr);
+            Console.WriteLine(self);
+            Console.WriteLine(method);
 
             var objs = new Object[argCount];
 

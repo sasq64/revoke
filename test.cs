@@ -10,6 +10,35 @@ public class TestClass
     }
 }
 
+public struct Vector3
+{
+    public float x;
+    public float y;
+    public float z;
+}
+
+public class Transform
+{
+    public Vector3 position;
+    public GameObject parent;
+    public GameObject[] children;
+}
+
+public class GameObject
+{
+    public Transform transform;
+    public String name;
+
+    public String GetName() {
+        return name;
+    }
+
+    public int TestFn(int a, int b) {
+        Console.WriteLine("" + a + "," + b);
+        return a + b;
+    }
+}
+
 public class TestMain
 {
     [DllImport("revoke")]

@@ -37,6 +37,8 @@ enum ObjType
 
 using csptr = std::shared_ptr<void>;
 
+
+
 template <typename... ARGS> struct SharpFunc;
 
 struct FuncList
@@ -118,6 +120,8 @@ namespace cs {
 
 struct Field;
 
+csptr make_csptr(void* p) { return std::shared_ptr<void>(p, Revoke::instance().Free.fptr); }
+
 struct Obj
 {
     csptr ptr;
@@ -141,7 +145,7 @@ struct Obj
 
     static inline void* convert(Obj const& a) { return a.ptr.get(); }
 
-    Obj(void* p) : ptr(p, Revoke::instance().Free.fptr) {}
+    Obj(void* p) : ptr(make_csptr(p)) {}
 
     Obj(csptr const& p) : ptr(p) {}
 

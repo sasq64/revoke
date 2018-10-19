@@ -14,3 +14,5 @@ add_subdirectory(lua)
 add_library(revoke SHARED test.cpp)
 target_link_libraries(revoke PRIVATE lua)
 
+set_property(TARGET revoke PROPERTY CXX_STANDARD 17)
+set_property(TARGET revoke PROPERTY CXX_STANDARD_REQUIRED ON)
