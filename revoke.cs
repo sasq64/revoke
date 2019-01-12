@@ -8,6 +8,9 @@ using System.Runtime.InteropServices;
 using System.Collections.Generic;
 using System.Linq.Expressions;
 
+// A native reference to a managed object. Will not be garbage collected
+// Until released
+using NativeRef = System.IntPtr;
 
 namespace revoke
 {
@@ -17,7 +20,13 @@ namespace revoke
 
     public static class Revoke
     {
+
+
+
 #if WIN
+        // On windows, we link the needed function at runtime
+
+        // Copy a native string to another
         public delegate void StringCopy(IntPtr dest, IntPtr src);
         public delegate void revoke_callbacks(int count, IntPtr[] callbacks, IntPtr[] names);
         public static IntPtr revokeLibPtr;
@@ -63,22 +72,33 @@ namespace revoke
         }
 
 
-        private static T As<T>(IntPtr nativeRef)
+        // Get a real (typed) reference to the managed objects referenced 
+        // by 'nativeRef'
+        private static T As<T>(NativeRef nativeRef)
         {
-            if (nativeRef == IntPtr.Zero)
+            if (nativeRef == NativeRef.Zero)
                 return default(T);
             return (T)GCHandle.FromIntPtr(nativeRef).Target;
         }
 
-        private static IntPtr ToNative<T>(T obj)
+        // Wrap a C# object in a native pointer. Will not be garbage collected
+        // until the handle is released.
+        private static NativeRef ToNative<T>(T obj)
         {
             return GCHandle.ToIntPtr(GCHandle.Alloc(obj));
         }
 
-        // The Interface
+        // The Interface. All methods tagged with 'Expose' will be wrapped
+        // in delegates and passes as a list down to the native code, so they
+        // can be called from there.
+        // We use the 'NativeRef' alias to indicate an IntPtr that must
+        // reference a managed object.
+        // When we use raw IntPtr we try to document what it's C/C++
+        // equivalent type is expected to be.
 
         [Expose]
-        public static IntPtr GetArrayValue(IntPtr selfPtr, int offset)
+        // Get an object from a C# array
+        public static NativeRef GetArrayValue(NativeRef selfPtr, int offset)
         {
             var self = As<Object[]>(selfPtr);
             Object result = self.GetValue(offset);
@@ -86,7 +106,8 @@ namespace revoke
         }
 
         [Expose]
-        public static void SetArrayValue(IntPtr selfPtr, int offset, IntPtr argPtr)
+        // Set an object into a C# array
+        public static void SetArrayValue(NativeRef selfPtr, int offset, NativeRef argPtr)
         {
             var self = As<Object[]>(selfPtr);
             var obj = As<Object>(argPtr);
@@ -94,31 +115,31 @@ namespace revoke
         }
 
         [Expose]
-        public static float GetArrayValueFloat(IntPtr selfPtr, int offset)
+        public static float GetArrayValueFloat(NativeRef selfPtr, int offset)
         {
             return As<float[]>(selfPtr)[offset];
         }
 
         [Expose]
-        public static void SetArrayValueFloat(IntPtr selfPtr, int offset, float arg)
+        public static void SetArrayValueFloat(NativeRef selfPtr, int offset, float arg)
         {
             As<float[]>(selfPtr)[offset] = arg;
         }
 
         [Expose]
-        public static int GetArrayValueInt(IntPtr selfPtr, int offset)
+        public static int GetArrayValueInt(NativeRef selfPtr, int offset)
         {
             return As<int[]>(selfPtr)[offset];
         }
 
         [Expose]
-        public static void SetArrayValueInt(IntPtr selfPtr, int offset, int arg)
+        public static void SetArrayValueInt(NativeRef selfPtr, int offset, int arg)
         {
             As<int[]>(selfPtr)[offset] = arg;
         }
 
         [Expose]
-        public static void GetManyVal(IntPtr selfPtr, int offset, int count, IntPtr target)
+        public static void GetManyVal(NativeRef selfPtr, int offset, int count, IntPtr target)
         {
             var self = As<Object>(selfPtr);
             var elementType = self.GetType().GetElementType();
@@ -135,7 +156,7 @@ namespace revoke
         }
 
         [Expose]
-        public static void SetManyVal(IntPtr selfPtr, int offset, int count, IntPtr target)
+        public static void SetManyVal(NativeRef selfPtr, int offset, int count, IntPtr target)
         {
             var self = As<Object>(selfPtr);
             var elementType = self.GetType().GetElementType();
@@ -152,7 +173,7 @@ namespace revoke
         }
 
         [Expose]
-        public static void SetProperty(string fieldName, IntPtr selfPtr, IntPtr value)
+        public static void SetProperty(string fieldName, NativeRef selfPtr, NativeRef value)
         {
             var self = As<Object>(selfPtr);
             var arg = As<Object>(value);
@@ -170,7 +191,7 @@ namespace revoke
         }
 
         [Expose]
-        public static IntPtr GetProperty(string fieldName, IntPtr selfPtr)
+        public static NativeRef GetProperty(string fieldName, NativeRef selfPtr)
         {
             var self = As<Object>(selfPtr);
             var typ = (self is Type) ? (Type)self : self.GetType();
@@ -188,10 +209,11 @@ namespace revoke
         }
 
         [Expose]
-        public static IntPtr MethodCall(IntPtr boundMethod, IntPtr selfPtr, int argCount, IntPtr argsPtr)
+        public static NativeRef MethodCall(NativeRef boundMethod, NativeRef selfPtr, int argCount, IntPtr argsPtr)
         {
             var method = As<MethodInfo>(boundMethod);
             var self = As<Object>(selfPtr);
+
             Console.WriteLine(self);
             Console.WriteLine(method);
 
@@ -211,8 +233,9 @@ namespace revoke
         }
 
         [Expose]
-        public static IntPtr NamedCall(string methodName, IntPtr selfPtr, int argCount, IntPtr argsPtr)
+        public static NativeRef NamedCall(string methodName, NativeRef selfPtr, int argCount, IntPtr argsPtr)
         {
+            Object self = As<Object>(selfPtr);
 
             var objs = new Object[argCount];
             var argTypes = new Type[argCount];
@@ -228,7 +251,6 @@ namespace revoke
                 }
             }
 
-            Object self = As<Object>(selfPtr);
             var typ = (self is Type) ? (Type)self : self.GetType();
 
 
@@ -245,21 +267,21 @@ namespace revoke
         }
 
         [Expose]
-        public static IntPtr GetType(string name)
+        public static NativeRef GetType(string name)
         {
             var ptr = Type.GetType(name);
             return ToNative(ptr);
         }
 
         [Expose]
-        public static int GetMemberCount(IntPtr obj)
+        public static int GetMemberCount(NativeRef obj)
         {
             var type = As<Type>(obj);
             return type.GetMembers().Length;
         }
 
         [Expose]
-        public static IntPtr GetTypes(int count, IntPtr charpArray) // char** ptr
+        public static NativeRef GetTypes(int count, IntPtr /* char** */ charpArray)
         {
             IntPtr[] intPtrArray = new IntPtr[count];
             Type[] typeArray = new Type[count];
@@ -275,11 +297,12 @@ namespace revoke
         }
 
         [Expose]
-        public static IntPtr ResolveMethod(string methodName, IntPtr classType, IntPtr argTypes)
+        public static NativeRef ResolveMethod(string methodName, NativeRef classType, NativeRef argTypes)
         {
             var obj = As<Object>(classType);
-            var t = (obj is Type) ? (Type)obj : obj.GetType();
             var types = As<Type[]>(argTypes);
+
+            var t = (obj is Type) ? (Type)obj : obj.GetType();
             MethodInfo method = null;
             foreach (var m in t.GetMethods())
             {
@@ -298,9 +321,10 @@ namespace revoke
         }
 
         [Expose]
-        public static int GetTypeID(IntPtr ptr, IntPtr sizePtr)
+        public static int GetTypeID(NativeRef ptr, IntPtr sizePtr)
         {
-            Object obj = GCHandle.FromIntPtr(ptr).Target;
+            var obj = As<Object>(ptr);
+            //Object obj = GCHandle.FromIntPtr(ptr).Target;
             int size = 0;
 
             Type at = obj.GetType().GetElementType();
@@ -335,9 +359,10 @@ namespace revoke
         }
 
         [Expose]
-        public static int CastTo(int type, IntPtr ptr, IntPtr target)
+        // Convert a managed object to a native object
+        public static int CastTo(int type, NativeRef ptr, IntPtr target)
         {
-            Object obj = GCHandle.FromIntPtr(ptr).Target;
+            var obj = As<Object>(ptr);
 
             var objType = (ObjType)type;
 
@@ -353,7 +378,7 @@ namespace revoke
                 case ObjType.STRING:
                     IntPtr cstring = Marshal.StringToHGlobalAuto((String)obj);
 #if WIN
-                Invoke<StringCopy>(revokeLibPtr, target, cstring);
+                    Invoke<StringCopy>(revokeLibPtr, target, cstring);
 #else
                     StringCopy(target, cstring);
 #endif
@@ -364,14 +389,17 @@ namespace revoke
         }
 
         [Expose]
-        public static void Free(IntPtr ptr)
+        // Release an object created using ToNative
+        public static void Free(NativeRef ptr)
         {
+            if(ptr == IntPtr.Zero)
+                return;
             var handle = GCHandle.FromIntPtr(ptr);
             handle.Free();
         }
 
         [Expose]
-        public static IntPtr CreateFrom(int type, IntPtr source)
+        public static NativeRef CreateFrom(int type, IntPtr source)
         {
             Object obj = null;
             var objType = (ObjType)type;
@@ -393,13 +421,13 @@ namespace revoke
         }
 
         [Expose]
-        public static int GetMembers(IntPtr objPtr, IntPtr target)
+        public static int GetMembers(NativeRef objPtr, IntPtr /* MemberInfo* */ target)
         {
             var obj = As<Object>(objPtr);
             var t = (obj is Type) ? (Type)obj : obj.GetType();
 
             MemberInfo[] members = t.GetMembers();
-            int bs = 8;
+            const int bs = 8;
             int i = 0;
             foreach (var m in members)
             {
@@ -411,6 +439,8 @@ namespace revoke
             return i/(bs*3);
 
         }
+
+        // --- Interface end
 
         public static Delegate ToDelegate(MethodInfo mi)
         {

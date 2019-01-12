@@ -35,12 +35,6 @@ enum ObjType
     OBJECT_ARRAY
 };
 
-using csptr = std::shared_ptr<void>;
-
-
-
-template <typename... ARGS> struct SharpFunc;
-
 struct FuncList
 {
     static std::map<std::string, void**>& get()
@@ -52,11 +46,12 @@ struct FuncList
     }
 };
 
+template <typename... ARGS> struct SharpFunc;
 template <typename R, typename... ARGS> struct SharpFunc<R(ARGS...)>
 {
-    std::string name;
+    // std::string name;
     R (*fptr)(ARGS...);
-    SharpFunc(std::string const& name) : name(name)
+    SharpFunc(std::string const& name) //: name(name)
     {
         FuncList::get()[name] = (void**)&fptr;
     }
@@ -73,28 +68,83 @@ static void setFn(std::string const& name, void* fptr)
         *ptr = fptr;
 }
 
+struct MemberInfo
+{
+    const char* name;
+    int64_t count;
+    void* memberInfo;
+};
+
+template <class Tag, typename T> class strong_typedef
+{
+public:
+    strong_typedef() : value_() {}
+
+    explicit strong_typedef(const T& value) : value_(value) {}
+
+    explicit strong_typedef(T&& value) noexcept(
+        std::is_nothrow_move_constructible<T>::value)
+        : value_(std::move(value))
+    {}
+
+    explicit operator T&() noexcept { return value_; }
+
+    explicit operator const T&() const noexcept { return value_; }
+
+    friend void swap(strong_typedef& a, strong_typedef& b) noexcept
+    {
+        using std::swap;
+        swap(static_cast<T&>(a), static_cast<T&>(b));
+    }
+
+private:
+    T value_;
+};
+
+//struct ObjectRef : strong_typedef<ObjectRef, void*> {};
+
+using ObjectRef = void*;
+using ObjectArrayRef = void*;
+using TypeArrayRef = void*;
+using TypeRef = void*;
+using MethodInfoRef = void*;
+
 struct Revoke
 {
-    SharpFunc<void*(int, const char**)> GetTypes{"GetTypes"};
-    SharpFunc<void*(const char*)> GetType{"GetType"};
-    SharpFunc<void*(const char*, void*, void*)> ResolveMethod{"ResolveMethod"};
-    SharpFunc<void*(void*, void*, int, void*)> MethodCall{"MethodCall"};
-    SharpFunc<void*(const char*, void*, int, void*)> NamedCall{"NamedCall"};
-    SharpFunc<void(const char*, void*, void*)> SetProperty{"SetProperty"};
-    SharpFunc<void*(const char*, void*)> GetProperty{"GetProperty"};
-    SharpFunc<int(void*, void*)> GetTypeId{"GetTypeID"};
-    SharpFunc<int(void*, void*)> GetMembers{"GetMembers"};
-    SharpFunc<int(int, void*, void*)> CastTo{"CastTo"};
-    SharpFunc<void*(int, void*)> CreateFrom{"CreateFrom"};
-    SharpFunc<void(void*)> Free{"Free"};
-    SharpFunc<void(void*, int, void*)> SetArrayValue{"SetArrayValue"};
-    SharpFunc<void*(void*, int, void*)> GetArrayValue{"GetArrayValue"};
-    SharpFunc<void(void*, int, int, void*)> SetManyVal{"SetManyVal"};
-    SharpFunc<void(void*, int, int, void*)> GetManyVal{"GetManyVal"};
-    SharpFunc<void(void*, int, int)> SetArrayValueInt{"SetArrayValueInt"};
-    SharpFunc<int(void*, int)> GetArrayValueInt{"GetArrayValueInt"};
-    SharpFunc<void(void*, int, float)> SetArrayValueFloat{"SetArrayValueFloat"};
-    SharpFunc<float(void*, int)> GetArrayValueFloat{"GetArrayValueFloat"};
+    SharpFunc<ObjectRef(ObjectArrayRef, int)> GetArrayValue{"GetArrayValue"};
+    SharpFunc<void(ObjectArrayRef, int, ObjectRef)> SetArrayValue{
+        "SetArrayValue"};
+    SharpFunc<float(ObjectArrayRef, int)> GetArrayValueFloat{
+        "GetArrayValueFloat"};
+    SharpFunc<void(ObjectArrayRef, int, float)> SetArrayValueFloat{
+        "SetArrayValueFloat"};
+    SharpFunc<int(ObjectArrayRef, int)> GetArrayValueInt{"GetArrayValueInt"};
+    SharpFunc<void(ObjectArrayRef, int, int)> SetArrayValueInt{
+        "SetArrayValueInt"};
+
+    SharpFunc<void(ObjectArrayRef, int, int, void*)> GetManyVal{"GetManyVal"};
+    SharpFunc<void(ObjectArrayRef, int, int, void*)> SetManyVal{"SetManyVal"};
+
+    SharpFunc<void(const char*, ObjectRef, ObjectRef)> SetProperty{
+        "SetProperty"};
+    SharpFunc<void*(const char*, ObjectRef)> GetProperty{"GetProperty"};
+
+    SharpFunc<ObjectRef(MethodInfoRef, ObjectRef, int, void*)> MethodCall{
+        "MethodCall"};
+    SharpFunc<ObjectRef(const char*, ObjectRef, int, void*)> NamedCall{
+        "NamedCall"};
+
+    SharpFunc<TypeRef(const char*)> GetType{"GetType"};
+    SharpFunc<TypeArrayRef(int, const char**)> GetTypes{"GetTypes"};
+
+    SharpFunc<MethodInfoRef(const char*, ObjectRef, TypeArrayRef)>
+        ResolveMethod{"ResolveMethod"};
+    SharpFunc<int(ObjectRef, void*)> GetTypeId{"GetTypeID"};
+
+    SharpFunc<int(ObjType, ObjectRef, void*)> CastTo{"CastTo"};
+    SharpFunc<int(ObjectRef, MemberInfo*)> GetMembers{"GetMembers"};
+    SharpFunc<ObjectRef(int, void*)> CreateFrom{"CreateFrom"};
+    SharpFunc<void(ObjectRef)> Free{"Free"};
 
     void setup(int count, void** callbacks, void** namesPtr)
     {
@@ -119,46 +169,50 @@ extern "C" API void revoke_callbacks(int count, void** callbacks, void** names)
 namespace cs {
 
 struct Field;
+using csptr = std::shared_ptr<void>;
 
-csptr make_csptr(void* p) { return std::shared_ptr<void>(p, Revoke::instance().Free.fptr); }
+csptr make_csptr(void* p)
+{
+    return std::shared_ptr<void>(p, Revoke::instance().Free.fptr);
+}
 
 struct Obj
 {
     csptr ptr;
+    csptr classPtr;
 
-    static inline void* convert(float const& a)
+    static inline ObjectRef convert(float const& a)
     {
         float v = a;
         return Revoke::instance().CreateFrom(FLOAT, &v);
     }
 
-    static inline void* convert(int const& a)
+    static inline ObjectRef convert(int const& a)
     {
         int v = a;
         return Revoke::instance().CreateFrom(INT, &v);
     }
 
-    static inline void* convert(std::string const& a)
+    static inline ObjectRef convert(std::string const& a)
     {
         return Revoke::instance().CreateFrom(STRING, (void*)a.c_str());
     }
 
     static inline void* convert(Obj const& a) { return a.ptr.get(); }
 
-    Obj(void* p) : ptr(make_csptr(p)) {}
+    Obj(void* p, void* classp = nullptr)
+        : ptr(make_csptr(p)), classPtr(make_csptr(classp))
+    {}
 
-    Obj(csptr const& p) : ptr(p) {}
+    Obj(csptr& p, csptr& c) : ptr(p), classPtr(c) {}
 
-    Obj()
-    {
-        printf("XXX\n");
-    }
+    Obj() = default;
 
     // Create static object
     Obj(std::string const& name)
     {
-        ptr = csptr(Revoke::instance().GetType(name.c_str()),
-                    Revoke::instance().Free.fptr);
+        classPtr = nullptr;
+        ptr = make_csptr(Revoke::instance().GetType(name.c_str()));
     }
 
     template <typename... ARGS>
@@ -211,6 +265,12 @@ struct Obj
         }
         return "";
     }
+    int get_field(const char*)
+    {
+        printf("In get field %p\n", ptr.get());
+        return 4;
+    }
+    void set_field(const char*, Obj& x) {}
 
     struct Item
     {
@@ -280,7 +340,7 @@ struct Field
     {
         void* newPtr =
             Revoke::instance().GetProperty(this->name.c_str(), ptr.get());
-        return Field(csptr(newPtr, Revoke::instance().Free.fptr), name);
+        return Field(make_csptr(newPtr), name);
     }
 
     operator int()
@@ -309,14 +369,14 @@ struct Field
 
     const char* to_charp(const char* p) { return p; }
 
-    template <typename... ARGS> Method type(ARGS const&... types)
+    template <typename... ARGS> Method bind(ARGS const&... types)
     {
         const char* pargs[] = {to_charp(types)...};
         void* tp = Revoke::instance().GetTypes(sizeof...(types), pargs);
         void* mptr =
             Revoke::instance().ResolveMethod(name.c_str(), ptr.get(), tp);
         Revoke::instance().Free(tp);
-        return Method(ptr, csptr(mptr, Revoke::instance().Free.fptr));
+        return Method(ptr, make_csptr(mptr));
     }
 };
 
@@ -325,8 +385,7 @@ struct Class
     csptr classPtr;
     Class(std::string const& name)
     {
-        classPtr = csptr(Revoke::instance().GetType(name.c_str()),
-                         Revoke::instance().Free.fptr);
+        classPtr = make_csptr(Revoke::instance().GetType(name.c_str()));
     }
 
     template <typename... ARGS> Obj New(ARGS const&... args)

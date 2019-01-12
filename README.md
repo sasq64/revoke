@@ -1,6 +1,6 @@
 # Revoke
 
-_Call C# from C++_
+_Call C# from C++ and Lua_
 
 ### Test (Linux)
 
@@ -26,7 +26,7 @@ Now your C++ side code have access to C#;
 ```
 
 For reference, the corresponding C# code:
-```c#
+```cs
     var testObj = new SomeCSClass("hello", 3.14f);
     testObj.position = new Vector3(1.2f, 1.3f, 1.4f);
     float x = testObj.position.x;

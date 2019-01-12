@@ -27,15 +27,16 @@ public class Transform
 public class GameObject
 {
     public Transform transform;
-    public String name;
+    public String name = "yo";
 
     public String GetName() {
         return name;
     }
 
-    public int TestFn(int a, int b) {
-        Console.WriteLine("" + a + "," + b);
-        return a + b;
+    public int TestFn(int a, GameObject b) {
+        Console.WriteLine("" + a + "," + b.name);
+
+        return a + 3;
     }
 }
 
@@ -48,6 +49,7 @@ public class TestMain
     {
         revoke.Revoke.Init("");
         test_start();
+        Console.WriteLine("Done");
         return 0;
     }
 }

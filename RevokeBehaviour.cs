@@ -24,8 +24,10 @@ public class RevokeBehaviour : MonoBehaviour {
     void Awake ()
     {
 #if (UNITY_EDITOR_WIN || UNITY_STANDALONE_WIN)
-        revoke.Revoke.LoadLibrary(Application.streamingAssetsPath + "/bin/libwinpthread-1.dll");
-        revoke.Revoke.Init(Application.streamingAssetsPath + "/bin/revoke.dll");
+        revoke.Revoke.LoadLibrary(Application.streamingAssetsPath +
+                "/bin/libwinpthread-1.dll");
+        revoke.Revoke.Init(Application.streamingAssetsPath +
+                "/bin/revoke.dll");
         revoke.Revoke.Invoke<unity_start>();
 #else
         revoke.Revoke.Init("");

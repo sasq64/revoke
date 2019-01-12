@@ -3,7 +3,7 @@ OS := $(shell uname)
 all : test.exe
 
 build :
-	cmake -Bbuild -H.
+	cmake -DCMAKE_BUILD_TYPE=Debug -Bbuild -H.
 
 compile_commands.json : build/compile_commands.json
 	ln -s build/compile_commands.json .
@@ -17,6 +17,8 @@ test.exe : test.cs revoke.cs cmakeproj
 run : test.exe
 	LD_LIBRARY_PATH=build mono test.exe
 
+deb : test.exe
+	LD_LIBRARY_PATH=build gdb --args mono test.exe
 clean :
 	rm test.exe
 	make -C build clean

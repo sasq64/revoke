@@ -3,6 +3,9 @@
 
 #include "sol2/sol.hpp"
 
+#include <map>
+#include <string>
+
 struct CSLua
 {
     struct CSStaticCall
@@ -17,22 +20,52 @@ struct CSLua
 
     struct CSConstruct
     {
-        cs::Obj classObj;
+        cs::csptr classObj;
 
-        CSConstruct(void* classPtr) : classObj(classPtr) {}
+        struct Member
+        {
+            Member(std::string const& name, cs::csptr mi, int typ)
+                : name(name), memberInfo(mi), type(typ)
+            {}
+            std::string name;
+            cs::csptr memberInfo;
+            int type;
+        };
+
+
+        std::map<std::string, Member>
+            memberMap;
+
+        CSConstruct(void* classPtr) : classObj(classPtr)
+        {
+#if 0
+            void** target = new void*[100];
+            int count = Revoke::instance().GetMembers(classPtr, target);
+            printf("Found %d members\n", count);
+            for (int i = 0; i < count; i++) {
+                auto* name = (const char*)target[i * 3];
+                auto mt = (MemberType)(uint64_t)target[i * 3 + 1];
+                auto* p = target[i * 3 + 2];
+
+                printf("%s %u\n", name, mt);
+                Member member(name, cs::make_csptr(p), mt);
+                memberMap.try_emplace(name, member);
+            }
+#endif
+        }
 
         cs::Obj operator()()
         {
-            printf("Constructor on %p\n", classObj.ptr.get());
-            void* obj = Revoke::instance().NamedCall("new", classObj.ptr.get(),
+            printf("Constructor on %p\n", classObj.get());
+            void* obj = Revoke::instance().NamedCall("new", classObj.get(),
                                                      0, nullptr);
-            return cs::Obj(obj);
+            return cs::Obj(cs::make_csptr(obj), classObj);
         }
     };
 
     struct CSCall
     {
-        csptr method;
+        cs::csptr method;
 
         CSCall(void* ptr) : method(cs::make_csptr(ptr)) {}
 
@@ -46,6 +79,7 @@ struct CSLua
             for (const auto& v : va) {
                 auto t = v.get_type();
                 pargs[i] = nullptr;
+                printf("TYPE %d\n", (int)t);
                 switch (t) {
                 case sol::type::number:
                     printf("NUMBER\n");
@@ -56,8 +90,10 @@ struct CSLua
                     pargs[i] = Revoke::instance().CreateFrom(
                         ObjType::STRING, (void*)v.get<std::string>().c_str());
                     break;
-                case sol::type::table:
+                case sol::type::userdata:
+                    printf("TABLE\n");
                     if (v.is<cs::Obj>()) {
+                        printf("OBJ\n");
                         cs::Obj obj = v.get<cs::Obj>();
                         pargs[i] = obj.ptr.get();
                     }
@@ -88,12 +124,25 @@ struct CSLua
         Method = 8
     };
 
-    struct Prop
+    static void my_setter(const cs::Obj& obj, const char*, sol::object,
+                          sol::this_state s)
     {
-        int operator()(cs::Obj*) { return 9; }
-        void operator()(cs::Obj*, int x) {}
+        printf("In setter\n");
+    }
 
-    };
+    static sol::object my_getter(const cs::Obj& obj, std::string const& name,
+                                 sol::this_state s)
+    {
+        printf("In getter\n");
+
+        Revoke::instance().GetMember();
+
+        if (name == "TestFn") {
+            return sol::make_object(
+                s, [](cs::Obj& z, int x, cs::Obj& y) -> int { return 3; });
+        }
+        return sol::make_object(s, 3);
+    }
 
     static void init()
     {
@@ -101,31 +150,24 @@ struct CSLua
 
         std::string className = "GameObject";
         void* t = Revoke::instance().GetType(className.c_str());
-        lua().new_usertype<cs::Obj>(className, "new",
-                                    sol::factories(CSConstruct(t)));
+        lua().new_usertype<cs::Obj>(
+            className, "new", sol::factories(CSConstruct(t)),
+            sol::meta_function::index, &my_getter,
+            sol::meta_function::new_index, &my_setter
+            //,sol::meta_function::new_index, &cs::Obj::set_field
+        );
 
-        void** target = new void*[100];
-        int count = Revoke::instance().GetMembers(t, target);
-        printf("Found %d members\n", count);
-        for (int i = 0; i < count; i++) {
-            auto* name = (const char*)target[i * 3];
-            auto mt = (MemberType)(uint64_t)target[i * 3 + 1];
-            auto* p = target[i * 3 + 2];
+        lua()["println"] = &puts;
 
-            printf("%s %u\n", name, mt);
-            switch (mt) {
-            case MemberType::Method:
-                lua()[className][name] = CSCall(p);
-                break;
-            case MemberType::Field:
-                //lua()[className][name] = sol::property(x, x);
-                break;
-            }
-        }
+        printf("Running script\n");
 
         lua().script(R"(
         go = GameObject.new()
-        go:TestFn(4, 5)
+        go:TestFn(4, go)
+        println("Test called")
+        y = go.transform
+        print(y)
+        println("here")
     )");
         // lua()["GameObject"]["static_call"] = CSStaticCall();
         // lua()["GameObject"]["member_call"] = CSCall();
