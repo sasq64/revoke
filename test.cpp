@@ -3,7 +3,7 @@
 
 extern "C" API void test_start()
 {
-    void* t = Revoke::instance().GetType("TestClass");
+    auto* t = Revoke::instance().GetType("TestClass");
     MemberInfo* target = new MemberInfo[100];
     int count = Revoke::instance().GetMembers(t, target);
     printf("Found %d members\n", count);

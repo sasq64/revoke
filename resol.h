@@ -36,7 +36,7 @@ struct CSLua
         std::map<std::string, Member>
             memberMap;
 
-        CSConstruct(void* classPtr) : classObj(classPtr)
+        CSConstruct(ObjectRef* classPtr) : classObj(classPtr)
         {
 #if 0
             void** target = new void*[100];
@@ -57,7 +57,7 @@ struct CSLua
         cs::Obj operator()()
         {
             printf("Constructor on %p\n", classObj.get());
-            void* obj = Revoke::instance().NamedCall("new", classObj.get(),
+            auto* obj = Revoke::instance().NamedCall("new", classObj.get(),
                                                      0, nullptr);
             return cs::Obj(cs::make_csptr(obj), classObj);
         }
